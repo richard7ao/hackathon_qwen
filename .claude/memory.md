@@ -2,7 +2,7 @@
 
 - [2026-08-14] Product scope: rental-property chatbot that interviews users, finds matches, and automates viewing outreach (voice/email/WhatsApp).
 - [2026-08-14] Stack: Next.js 14 App Router + Tailwind CSS, deployed to Vercel.
-- [2026-08-14] SIE/Alibaba Cloud integration is mocked for the demo; integration seams are explicit so real providers can be swapped in.
+- [2026-08-14] SIE chat completions and embeddings are now live via `lib/sie.ts` using Qwen models on Superlinked.
 - [2026-08-14] Design direction: Tera Business Finance landing-page structure (hero + isometric illustration + clear CTA) with green replacing purple.
 - [2026-08-14] Structure: marketing landing page (`/`) plus separate demo app (`/demo`) with chat + dashboard.
 
@@ -25,6 +25,6 @@
 ## Open Questions
 
 - Do we have real API keys for Twilio/WhatsApp/SendGrid, or should outreach remain simulated?
-- Does the demo need actual SIE Python integration, or is the mock routing enough for the hackathon video?
 - Should we record the 2-minute demo video now, or polish the chat/dashboard interactions first?
 - What social platform and handle should we use for the social media track post?
+- Should we add a small floating chat widget on the landing page (like Tera’s Jasmine)?
