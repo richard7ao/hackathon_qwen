@@ -1,4 +1,4 @@
-import { Property, Outreach } from "./types";
+import { Property } from "./types";
 
 export const mockProperties: Property[] = [
   {
@@ -9,7 +9,7 @@ export const mockProperties: Property[] = [
     bedrooms: 1,
     bathrooms: 1,
     availableFrom: "2026-09-01",
-    imageColor: "oklch(0.85 0.08 85)",
+    imageColor: "oklch(0.88 0.06 145)",
   },
   {
     id: "p2",
@@ -19,7 +19,7 @@ export const mockProperties: Property[] = [
     bedrooms: 1,
     bathrooms: 1,
     availableFrom: "2026-08-20",
-    imageColor: "oklch(0.82 0.06 220)",
+    imageColor: "oklch(0.85 0.05 200)",
   },
   {
     id: "p3",
@@ -29,8 +29,36 @@ export const mockProperties: Property[] = [
     bedrooms: 2,
     bathrooms: 1,
     availableFrom: "2026-09-10",
-    imageColor: "oklch(0.88 0.05 145)",
+    imageColor: "oklch(0.9 0.05 110)",
+  },
+  {
+    id: "p4",
+    title: "Bright Studio in Hayes Valley",
+    address: "540 Hayes St, San Francisco, CA",
+    price: 2400,
+    bedrooms: 0,
+    bathrooms: 1,
+    availableFrom: "2026-08-25",
+    imageColor: "oklch(0.87 0.07 85)",
+  },
+  {
+    id: "p5",
+    title: "Spacious 2BR with Balcony, Marina",
+    address: "3210 Fillmore St, San Francisco, CA",
+    price: 4200,
+    bedrooms: 2,
+    bathrooms: 2,
+    availableFrom: "2026-09-05",
+    imageColor: "oklch(0.86 0.06 160)",
+  },
+  {
+    id: "p6",
+    title: "Cozy 1BR near Dolores Park",
+    address: "701 Dolores St, San Francisco, CA",
+    price: 3100,
+    bedrooms: 1,
+    bathrooms: 1,
+    availableFrom: "2026-09-15",
+    imageColor: "oklch(0.89 0.05 135)",
   },
 ];
-
-export const initialOutreach: Outreach[] = [];

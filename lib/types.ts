@@ -15,19 +15,34 @@ export interface Property {
   imageColor: string;
 }
 
+export type OutreachChannel = "voice" | "email" | "whatsapp";
+export type OutreachStatus = "pending" | "sent" | "confirmed" | "failed";
+
 export interface Outreach {
   id: string;
   propertyId: string;
   propertyTitle: string;
-  channel: "voice" | "email" | "whatsapp";
-  status: "pending" | "sent" | "confirmed" | "failed";
+  channel: OutreachChannel;
+  status: OutreachStatus;
   scheduledAt?: string;
 }
 
 export interface Preferences {
-  budget?: number;
   location?: string;
+  budget?: number;
   bedrooms?: number;
   moveInDate?: string;
   mustHaves?: string[];
+}
+
+export type PropertyDecision = "yes" | "no";
+
+export interface Viewing {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  address: string;
+  date: string; // ISO date
+  time: string; // e.g. "2:00 PM"
+  channel: OutreachChannel;
 }
