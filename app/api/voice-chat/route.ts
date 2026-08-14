@@ -1,0 +1,60 @@
+import { NextRequest, NextResponse } from "next/server";
+import { chatCompletion } from "@/lib/sie";
+import { synthesizeSpeech } from "@/lib/voice";
+
+interface Turn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/**
+ * Interactive voice call: the AI plays the landlord/letting agent for a
+ * property. The user (caller, on their laptop) speaks/types; the landlord
+ * replies naturally and the reply is synthesized with Qwen3-TTS for in-browser
+ * playback.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const {
+      history,
+      property,
+    }: { history: Turn[]; property?: { title?: string; address?: string } } = await req.json();
+
+    const title = property?.title || "the property";
+    const address = property?.address || "the listed address";
+
+    const system = `You are the friendly letting agent for "${title}" at ${address}, taking a phone call from a prospective tenant.
+Rules:
+- Speak naturally and briefly, like a real phone call: 1-2 short sentences per reply.
+- Answer their questions about the flat (rooms, availability, bills, pets, transport) — make reasonable, positive details up if needed.
+- When they ask to view it, agree and offer a specific day and time (e.g. "this Saturday at 2pm").
+- If the call is just starting (no messages yet), greet them: say hello, name the property, and ask how you can help.
+- Never say you are an AI. Do not use emojis or markdown. Keep it human and warm.`;
+
+    const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+      { role: "system", content: system },
+    ];
+    for (const t of history || []) {
+      messages.push({ role: t.role, content: t.content });
+    }
+    // Nudge a greeting when the call just connected.
+    if (!history || history.length === 0) {
+      messages.push({ role: "user", content: "(call connected)" });
+    }
+
+    const reply = (await chatCompletion(messages)).trim() || "Hello? Sorry, I didn't catch that.";
+
+    let audioUrl: string | undefined;
+    try {
+      const tts = await synthesizeSpeech(reply, "Cherry", "English");
+      audioUrl = `/api/voice/audio?src=${encodeURIComponent(tts.audioUrl)}`;
+    } catch {
+      audioUrl = undefined;
+    }
+
+    return NextResponse.json({ reply, audioUrl });
+  } catch (error) {
+    console.error("voice-chat error:", error);
+    return NextResponse.json({ reply: "Sorry, the line dropped. Could you say that again?" }, { status: 200 });
+  }
+}

@@ -10,7 +10,7 @@ interface ExtractedPreferences {
   moveInDate?: string;
   mustHaves?: string[];
   isComplete?: boolean;
-  nextQuestion?: string;
+  reply?: string;
 }
 
 interface ChatResponse {
@@ -22,25 +22,24 @@ interface ChatResponse {
   complete: boolean;
 }
 
-const SYSTEM_PROMPT = `You are RentalFinder AI, a friendly rental assistant. Your job is to interview the user and collect exactly these fields:
-- location (city/neighborhood)
-- budget (monthly rent in GBP £, as a number)
-- bedrooms (number)
-- moveInDate (free-text date like "Sep 1")
-- mustHaves (array of strings, e.g. ["pet-friendly", "parking"])
+const SYSTEM_PROMPT = `You are RentalFinder AI, a warm, natural rental assistant chatting with someone looking for a flat in London. Talk like a real person — vary your wording, react to what they say, and be genuinely helpful. This is a conversation, not a form.
 
-Conversation flow:
-1. Start by asking for location.
-2. After each answer, acknowledge warmly and ask for the next missing field in this order: budget, bedrooms, moveInDate, mustHaves.
-3. When all fields are collected, set isComplete=true and say you are finding matches and reaching out to landlords.
+Across the chat, gather these fields when they come up naturally:
+- location (area/neighbourhood)
+- budget (monthly rent in GBP £, a number)
+- bedrooms (a number; a studio = 0)
+- moveInDate (free text like "ASAP" or "Sep 1")
+- mustHaves (array of strings, e.g. ["pet-friendly","parking","balcony"]) — optional
 
-Rules:
-- Be concise, friendly, and trustworthy.
-- Never ask for more than one thing at a time.
-- Infer reasonable values from the user's message when possible.
-- Return ONLY a JSON object with keys: location, budget, bedrooms, moveInDate, mustHaves, isComplete, nextQuestion.
-- If a field is unknown, omit it or set to null. mustHaves should be an array.
-- nextQuestion is the question you will ask the user next (or an empty string if isComplete=true).`;
+Behaviour:
+- React to the specifics they mention (e.g. if they say "somewhere lively" or "near the tube", acknowledge it).
+- Ask for at most one missing thing at a time, conversationally — don't interrogate.
+- Infer values when obvious (e.g. "around 2k" → budget 2000; "one bed" → bedrooms 1).
+- Once you have at least location, budget and bedrooms, set isComplete=true and say you're searching now.
+
+Return ONLY a JSON object with keys: location, budget, bedrooms, moveInDate, mustHaves, isComplete, reply.
+- "reply" is your natural conversational message to show the user (1-2 sentences, friendly, specific to what they said).
+- Omit or null any field you don't know yet. mustHaves must be an array.`;
 
 function getCombinedPreferenceText(prefs: ExtractedPreferences) {
   const parts = [
@@ -127,11 +126,11 @@ export async function POST(req: NextRequest) {
     if (!parsed) {
       // If the model returns malformed JSON, fall back to a generic response.
       return NextResponse.json<ChatResponse>({
-        reply: "Got it. Can you tell me which city or neighborhood you’re looking in?",
+        reply: "Got it. Which area of London are you looking in?",
         preferences: {},
         properties: [],
         outreach: [],
-        suggestions: ["San Francisco", "New York", "Austin"],
+        suggestions: ["Hackney", "Islington", "Camden", "Southwark"],
         complete: false,
       });
     }
@@ -147,26 +146,30 @@ export async function POST(req: NextRequest) {
     let outreach: Outreach[] = [];
     let suggestions: string[] = [];
     let complete = false;
-    let reply = parsed.nextQuestion || "Got it. What's next?";
+    let reply = parsed.reply || "Tell me a bit more about what you're after.";
 
-    if (parsed.isComplete) {
+    const hasCore = Boolean(parsed.location && parsed.budget && parsed.bedrooms);
+
+    if (parsed.isComplete && hasCore) {
       properties = await findMatches(parsed);
 
       if (properties.length > 0) {
-        reply = `I found ${properties.length} places that look like a fit. I’m reaching out to the landlords now to book viewings — you’ll see the status update live on the dashboard.`;
+        reply =
+          parsed.reply ||
+          `I found ${properties.length} places that look like a fit — take a look in Viewed properties.`;
         outreach = buildOutreach(properties);
         complete = true;
       } else {
-        reply = "I didn’t find any matches with those criteria. Try raising your budget or reducing bedrooms?";
-        suggestions = ["Raise budget", "Fewer bedrooms", "Different location"];
+        reply =
+          "I couldn't find matches with those exact criteria — want to raise the budget a touch or try a nearby area?";
+        suggestions = ["Raise budget", "Fewer bedrooms", "Different area"];
       }
     } else {
-      // Provide quick-reply chips for common values based on the next question.
-      const q = (parsed.nextQuestion || "").toLowerCase();
-      if (q.includes("bedroom")) suggestions = ["1", "2", "3+"];
-      if (q.includes("budget")) suggestions = ["£1,500", "£2,000", "£2,500", "£3,000"];
-      if (q.includes("location")) suggestions = ["Hackney", "Islington", "Camden", "Southwark"];
-      if (q.includes("date")) suggestions = ["ASAP", "Sep 1", "Oct 1"];
+      // Offer quick-reply chips for whichever core field is still missing.
+      if (!parsed.location) suggestions = ["Hackney", "Islington", "Camden", "Southwark"];
+      else if (!parsed.budget) suggestions = ["£1,500", "£2,000", "£2,500", "£3,000"];
+      else if (parsed.bedrooms === undefined || parsed.bedrooms === null) suggestions = ["Studio", "1", "2", "3+"];
+      else if (!parsed.moveInDate) suggestions = ["ASAP", "Sep 1", "Oct 1"];
     }
 
     return NextResponse.json<ChatResponse>({
