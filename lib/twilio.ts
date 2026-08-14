@@ -1,25 +1,20 @@
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
 const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || "";
-// Twilio WhatsApp sandbox sender by default.
-const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886";
+// WhatsApp sender (the account's WhatsApp-enabled number).
+const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+447460041934";
+// Approved WhatsApp content template (for business-initiated messages).
+const TWILIO_WHATSAPP_CONTENT_SID = process.env.TWILIO_WHATSAPP_CONTENT_SID || "";
 
 export function twilioConfigured(): boolean {
   return Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER);
 }
 
-/**
- * Send a WhatsApp message via the Twilio Messages API (sandbox on trial).
- * The recipient must have joined the sandbox first. Returns the message SID.
- */
-export async function sendWhatsApp(to: string, body: string): Promise<string> {
+async function postMessage(form: URLSearchParams): Promise<string> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
     throw new Error("Twilio is not configured");
   }
-  const toWa = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-  const form = new URLSearchParams({ To: toWa, From: TWILIO_WHATSAPP_FROM, Body: body });
   const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
-
   const res = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
     {
@@ -37,6 +32,27 @@ export async function sendWhatsApp(to: string, body: string): Promise<string> {
   }
   const data = await res.json();
   return data.sid as string;
+}
+
+function toWhatsApp(to: string): string {
+  return to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
+}
+
+/** Send the approved WhatsApp template (business-initiated, always allowed). */
+export async function sendWhatsAppTemplate(to: string): Promise<string> {
+  if (!TWILIO_WHATSAPP_CONTENT_SID) throw new Error("No WhatsApp content template configured");
+  const form = new URLSearchParams({
+    To: toWhatsApp(to),
+    From: TWILIO_WHATSAPP_FROM,
+    ContentSid: TWILIO_WHATSAPP_CONTENT_SID,
+  });
+  return postMessage(form);
+}
+
+/** Send a free-form WhatsApp message (only delivers inside an open 24h session). */
+export async function sendWhatsApp(to: string, body: string): Promise<string> {
+  const form = new URLSearchParams({ To: toWhatsApp(to), From: TWILIO_WHATSAPP_FROM, Body: body });
+  return postMessage(form);
 }
 
 /**
