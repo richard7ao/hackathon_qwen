@@ -37,7 +37,12 @@ export default function DemoPage() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [isTyping, setIsTyping] = useState(false);
   const [conversationComplete, setConversationComplete] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([
+    "Hackney, London",
+    "Islington, London",
+    "Camden, London",
+    "Southwark, London",
+  ]);
 
   // Shared search state
   const [preferences, setPreferences] = useState<Preferences>({});

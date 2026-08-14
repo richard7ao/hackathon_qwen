@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
         preferences: {},
         properties: [],
         outreach: [],
-        suggestions: ["Hackney", "Islington", "Camden", "Southwark"],
+        suggestions: ["Hackney, London", "Islington, London", "Camden, London", "Southwark, London"],
         complete: false,
       });
     }
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // Offer quick-reply chips for whichever core field is still missing.
-      if (!parsed.location) suggestions = ["Hackney", "Islington", "Camden", "Southwark"];
+      if (!parsed.location) suggestions = ["Hackney, London", "Islington, London", "Camden, London", "Southwark, London"];
       else if (!parsed.budget) suggestions = ["£1,500", "£2,000", "£2,500", "£3,000"];
       else if (parsed.bedrooms === undefined || parsed.bedrooms === null) suggestions = ["Studio", "1", "2", "3+"];
       else if (!parsed.moveInDate) suggestions = ["ASAP", "Sep 1", "Oct 1"];
