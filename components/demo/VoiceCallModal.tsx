@@ -19,6 +19,7 @@ interface VoiceCallModalProps {
   renterName: string;
   phoneNumber: string;
   onClose: () => void;
+  onBooked?: (viewingId: string, date: string, time: string) => void;
 }
 
 type Phase = "calling" | "live" | "whatsapp" | "done";
@@ -38,6 +39,7 @@ export default function VoiceCallModal({
   renterName,
   phoneNumber,
   onClose,
+  onBooked,
 }: VoiceCallModalProps) {
   const [phase, setPhase] = useState<Phase>("calling");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -49,6 +51,8 @@ export default function VoiceCallModal({
   const [waMessages, setWaMessages] = useState<WhatsAppMsg[]>([]);
   const [waStatus, setWaStatus] = useState<string | null>(null);
   const [waNote, setWaNote] = useState<string | null>(null);
+  const [bookedDate, setBookedDate] = useState(viewing.date);
+  const [bookedTime, setBookedTime] = useState(viewing.time);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -157,6 +161,31 @@ export default function VoiceCallModal({
 
   const finishAndBook = useCallback(async () => {
     setPhase("whatsapp");
+
+    // 1) Extract the day/time actually agreed on the call.
+    let finalDate = viewing.date;
+    let finalTime = viewing.time;
+    try {
+      const exRes = await fetchWithTimeout(
+        "/api/extract-viewing",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ history: turns }),
+        },
+        15000,
+      );
+      const ex = await exRes.json();
+      if (ex.date) finalDate = ex.date;
+      if (ex.time) finalTime = ex.time;
+    } catch {
+      /* keep defaults */
+    }
+    setBookedDate(finalDate);
+    setBookedTime(finalTime);
+    onBooked?.(viewing.id, finalDate, finalTime);
+
+    // 2) Send WhatsApp with the agreed date/time.
     try {
       const res = await fetchWithTimeout("/api/whatsapp", {
         method: "POST",
@@ -165,8 +194,8 @@ export default function VoiceCallModal({
           phoneNumber,
           propertyTitle: viewing.propertyTitle,
           address: viewing.address,
-          date: viewing.date,
-          time: viewing.time,
+          date: finalDate,
+          time: finalTime,
         }),
       });
       const data = await res.json();
@@ -177,7 +206,7 @@ export default function VoiceCallModal({
       setWaMessages([]);
     }
     setTimeout(() => setPhase("done"), 2600);
-  }, [phoneNumber, viewing]);
+  }, [phoneNumber, viewing, turns, onBooked]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm p-4">
@@ -272,7 +301,13 @@ export default function VoiceCallModal({
             <div className="mt-2 p-3 rounded-xl bg-success/10 text-center">
               <p className="text-sm font-medium text-success">✓ Viewing confirmed</p>
               <p className="text-xs text-muted mt-0.5">
-                {viewing.propertyTitle} · {new Date(viewing.date).toLocaleDateString()} at {viewing.time}
+                {viewing.propertyTitle} ·{" "}
+                {new Date(bookedDate).toLocaleDateString(undefined, {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                })}{" "}
+                at {bookedTime}
               </p>
             </div>
           )}

@@ -43,10 +43,12 @@ export async function POST(req: NextRequest) {
         await sendWhatsApp(to, reminder);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "";
-        // 63016 = message outside the 24h session window (needs a template).
-        if (msg.includes("63016") || msg.includes("session")) {
+        // 63016 / 21654 = outside the 24h session window (WhatsApp needs the
+        // user to message the business first before free-form is allowed).
+        if (msg.includes("63016") || msg.includes("21654") || msg.includes("session")) {
           status = "needs_session";
-          note = "Shown here for the demo. To receive it on your phone, send any WhatsApp to the RentalFinder number first (opens a 24h window).";
+          note =
+            "Shown here for the demo. To get it on your phone, open WhatsApp and send any message to +44 7460 041934 first (opens a 24h window), then re-book.";
         } else {
           status = "error";
           note = "Couldn't reach WhatsApp — showing the message here instead.";

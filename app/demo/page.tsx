@@ -235,6 +235,12 @@ export default function DemoPage() {
           renterName={RENTER_NAME}
           phoneNumber={DEMO_PHONE}
           onClose={() => setCallViewing(null)}
+          onBooked={(viewingId, date, time) => {
+            setViewings((prev) =>
+              prev.map((v) => (v.id === viewingId ? { ...v, date, time } : v)),
+            );
+            setCallViewing((cv) => (cv && cv.id === viewingId ? { ...cv, date, time } : cv));
+          }}
         />
       )}
     </div>
