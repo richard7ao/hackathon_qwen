@@ -5,12 +5,20 @@ const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || "";
 const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+447460041934";
 // Approved WhatsApp content template (for business-initiated messages).
 const TWILIO_WHATSAPP_CONTENT_SID = process.env.TWILIO_WHATSAPP_CONTENT_SID || "";
+// SMS sender + predefined trial template name.
+const TWILIO_SMS_FROM = process.env.TWILIO_SMS_FROM || TWILIO_FROM_NUMBER;
+const TWILIO_SMS_TEMPLATE = process.env.TWILIO_SMS_TEMPLATE || "sms_appointment_reminders";
 
 export function twilioConfigured(): boolean {
   return Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER);
 }
 
-async function postMessage(form: URLSearchParams): Promise<string> {
+export interface SentMessage {
+  sid: string;
+  body: string;
+}
+
+async function postMessage(form: URLSearchParams): Promise<SentMessage> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
     throw new Error("Twilio is not configured");
   }
@@ -28,18 +36,18 @@ async function postMessage(form: URLSearchParams): Promise<string> {
   );
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Twilio WhatsApp failed: ${res.status} ${text}`);
+    throw new Error(`Twilio send failed: ${res.status} ${text}`);
   }
   const data = await res.json();
-  return data.sid as string;
+  return { sid: data.sid as string, body: (data.body as string) || "" };
 }
 
 function toWhatsApp(to: string): string {
   return to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
 }
 
-/** Send the approved WhatsApp template (business-initiated, always allowed). */
-export async function sendWhatsAppTemplate(to: string): Promise<string> {
+/** Send the approved WhatsApp template. Returns the rendered body Twilio delivered. */
+export async function sendWhatsAppTemplate(to: string): Promise<SentMessage> {
   if (!TWILIO_WHATSAPP_CONTENT_SID) throw new Error("No WhatsApp content template configured");
   const form = new URLSearchParams({
     To: toWhatsApp(to),
@@ -50,8 +58,18 @@ export async function sendWhatsAppTemplate(to: string): Promise<string> {
 }
 
 /** Send a free-form WhatsApp message (only delivers inside an open 24h session). */
-export async function sendWhatsApp(to: string, body: string): Promise<string> {
+export async function sendWhatsApp(to: string, body: string): Promise<SentMessage> {
   const form = new URLSearchParams({ To: toWhatsApp(to), From: TWILIO_WHATSAPP_FROM, Body: body });
+  return postMessage(form);
+}
+
+/**
+ * Send an SMS. On a trial account the body must be a predefined template name
+ * (e.g. "sms_appointment_reminders"); Twilio renders the fixed template text.
+ * Returns the delivered body so the UI can stay consistent with the phone.
+ */
+export async function sendSmsTemplate(to: string): Promise<SentMessage> {
+  const form = new URLSearchParams({ To: to, From: TWILIO_SMS_FROM, Body: TWILIO_SMS_TEMPLATE });
   return postMessage(form);
 }
 

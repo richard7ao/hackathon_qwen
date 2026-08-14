@@ -9,9 +9,10 @@ interface Turn {
   content: string;
 }
 
-interface WhatsAppMsg {
-  kind: "confirmation" | "reminder";
+interface NotifyMsg {
+  channel: string; // "SMS" | "WhatsApp"
   body: string;
+  delivered?: boolean;
 }
 
 interface VoiceCallModalProps {
@@ -48,7 +49,7 @@ export default function VoiceCallModal({
   const [speaking, setSpeaking] = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [waMessages, setWaMessages] = useState<WhatsAppMsg[]>([]);
+  const [waMessages, setWaMessages] = useState<NotifyMsg[]>([]);
   const [waStatus, setWaStatus] = useState<string | null>(null);
   const [waNote, setWaNote] = useState<string | null>(null);
   const [bookedDate, setBookedDate] = useState(viewing.date);
@@ -301,29 +302,32 @@ export default function VoiceCallModal({
             </div>
           )}
 
-          {/* WhatsApp thread on finish */}
+          {/* Notifications (SMS + WhatsApp) on finish */}
           {(phase === "whatsapp" || phase === "done") && (
             <div className="pt-2">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm">💬</span>
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide">WhatsApp</p>
+                <span className="text-sm">📲</span>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide">
+                  Notifications sent to {phoneNumber}
+                </p>
               </div>
               <div className="rounded-xl bg-[oklch(0.96_0.02_150)] p-3 space-y-2">
                 {waMessages.map((m, i) => (
-                  <div key={i} className="flex justify-end">
-                    <div className="max-w-[85%] rounded-2xl rounded-br-none bg-[oklch(0.85_0.12_150)] text-ink px-3 py-2 text-sm">
-                      {m.body}
+                  <div key={i}>
+                    <p className="text-[10px] uppercase tracking-wide text-muted mb-0.5">
+                      {m.channel}
+                      {m.delivered === false ? " (shown here only)" : " ✓"}
+                    </p>
+                    <div className="flex justify-end">
+                      <div className="max-w-[85%] rounded-2xl rounded-br-none bg-[oklch(0.85_0.12_150)] text-ink px-3 py-2 text-sm">
+                        {m.body}
+                      </div>
                     </div>
                   </div>
                 ))}
                 {waMessages.length === 0 && <p className="text-xs text-muted text-center">sending…</p>}
               </div>
-              {waStatus === "sent" && (
-                <p className="text-xs text-success mt-2">Delivered to your WhatsApp ({phoneNumber}).</p>
-              )}
-              {waNote && waStatus !== "sent" && (
-                <p className="text-xs text-muted mt-2">{waNote}</p>
-              )}
+              {waNote && <p className="text-xs text-muted mt-2">{waNote}</p>}
             </div>
           )}
 
