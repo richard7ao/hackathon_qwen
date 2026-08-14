@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Viewing } from "@/lib/types";
 
-interface CallLine {
+interface VoiceLine {
   speaker: "agent" | "landlord";
   text: string;
+  audioUrl?: string;
 }
 
 interface WhatsAppMsg {
@@ -20,7 +21,7 @@ interface VoiceCallModalProps {
   onClose: () => void;
 }
 
-type Phase = "dialing" | "live" | "whatsapp" | "done" | "error";
+type Phase = "connecting" | "live" | "whatsapp" | "done" | "error";
 
 export default function VoiceCallModal({
   viewing,
@@ -28,67 +29,84 @@ export default function VoiceCallModal({
   phoneNumber,
   onClose,
 }: VoiceCallModalProps) {
-  const [phase, setPhase] = useState<Phase>("dialing");
-  const [transcript, setTranscript] = useState<CallLine[]>([]);
-  const [revealed, setRevealed] = useState(0);
+  const [phase, setPhase] = useState<Phase>("connecting");
+  const [lines, setLines] = useState<VoiceLine[]>([]);
+  const [current, setCurrent] = useState(-1);
   const [error, setError] = useState<string | null>(null);
-  const [callStatus, setCallStatus] = useState<string | null>(null);
   const [waMessages, setWaMessages] = useState<WhatsAppMsg[]>([]);
   const [waRevealed, setWaRevealed] = useState(0);
   const [waStatus, setWaStatus] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const started = useRef(false);
+  const transcriptEnd = useRef<HTMLDivElement>(null);
 
-  const startCall = useCallback(async () => {
-    setPhase("dialing");
+  const loadCall = useCallback(async () => {
+    setPhase("connecting");
     setError(null);
     try {
       const res = await fetch("/api/voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          call: true,
-          phoneNumber,
           renterName,
           propertyTitle: viewing.propertyTitle,
           address: viewing.address,
           moveInDate: viewing.date,
         }),
       });
-      if (!res.ok) throw new Error("Voice request failed");
+      if (!res.ok) throw new Error("voice failed");
       const data = await res.json();
-      setTranscript(data.transcript || []);
-      setCallStatus(data.callStatus || null);
+      if (!data.lines || data.lines.length === 0) throw new Error("no lines");
+      setLines(data.lines);
       setPhase("live");
-      if (data.audioUrl && audioRef.current) {
-        audioRef.current.src = data.audioUrl;
-        audioRef.current.play().catch(() => {});
-      }
+      setCurrent(0);
     } catch {
       setError("Could not start the call. Try again.");
       setPhase("error");
     }
-  }, [phoneNumber, renterName, viewing]);
+  }, [renterName, viewing]);
 
-  // Auto-start the call when the modal opens.
+  // Kick off once.
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    startCall();
-  }, [startCall]);
+    loadCall();
+  }, [loadCall]);
 
-  // Reveal transcript lines progressively, then move to WhatsApp.
+  // Drive the conversation line by line.
   useEffect(() => {
-    if (phase !== "live" || transcript.length === 0) return;
-    if (revealed >= transcript.length - 1) {
-      const t = setTimeout(() => setPhase("whatsapp"), 1400);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(() => setRevealed((r) => r + 1), 1600);
-    return () => clearTimeout(t);
-  }, [phase, revealed, transcript.length]);
+    if (phase !== "live" || current < 0 || current >= lines.length) return;
+    const line = lines[current];
+    const advance = () => {
+      if (current + 1 >= lines.length) {
+        setTimeout(() => setPhase("whatsapp"), 900);
+      } else {
+        setCurrent((c) => c + 1);
+      }
+    };
 
-  // Fire WhatsApp when entering the whatsapp phase.
+    if (line.speaker === "agent" && line.audioUrl && audioRef.current) {
+      const el = audioRef.current;
+      el.src = line.audioUrl;
+      el.onended = advance;
+      el.play().catch(() => {
+        // Autoplay blocked or error — fall back to a timed advance.
+        setTimeout(advance, 2600);
+      });
+      return () => {
+        el.onended = null;
+      };
+    }
+    // Landlord line (or missing audio): show for a beat, then advance.
+    const t = setTimeout(advance, line.speaker === "landlord" ? 1400 : 2600);
+    return () => clearTimeout(t);
+  }, [phase, current, lines]);
+
+  useEffect(() => {
+    transcriptEnd.current?.scrollIntoView({ behavior: "smooth" });
+  }, [current, phase, waRevealed]);
+
+  // WhatsApp phase.
   useEffect(() => {
     if (phase !== "whatsapp") return;
     let cancelled = false;
@@ -118,7 +136,6 @@ export default function VoiceCallModal({
     };
   }, [phase, phoneNumber, viewing]);
 
-  // Reveal WhatsApp messages one at a time, then finish.
   useEffect(() => {
     if (phase !== "whatsapp" || waMessages.length === 0) return;
     if (waRevealed >= waMessages.length) {
@@ -129,7 +146,7 @@ export default function VoiceCallModal({
     return () => clearTimeout(t);
   }, [phase, waRevealed, waMessages.length]);
 
-  const showTranscript = phase === "live" || phase === "whatsapp" || phase === "done";
+  const visibleLines = phase === "live" ? lines.slice(0, current + 1) : lines;
   const showWhatsApp = phase === "whatsapp" || phase === "done";
 
   return (
@@ -141,20 +158,20 @@ export default function VoiceCallModal({
             <div className="flex items-center gap-3">
               <div className="relative">
                 <span className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg">
-                  📞
+                  🎙️
                 </span>
-                {(phase === "dialing" || phase === "live") && (
+                {(phase === "connecting" || phase === "live") && (
                   <span className="absolute inset-0 rounded-full border-2 border-white/60 animate-ping" />
                 )}
               </div>
               <div>
-                <p className="font-semibold">Ava · RentalFinder AI</p>
+                <p className="font-semibold">Ava · AI Voice Agent</p>
                 <p className="text-xs text-white/80">
-                  {phase === "dialing" && `Calling ${phoneNumber}…`}
-                  {phase === "live" && "On the call"}
+                  {phase === "connecting" && "Preparing the call…"}
+                  {phase === "live" && "Calling the landlord"}
                   {phase === "whatsapp" && "Sending WhatsApp…"}
                   {phase === "done" && "Booked & notified"}
-                  {phase === "error" && "Call failed"}
+                  {phase === "error" && "Something went wrong"}
                 </p>
               </div>
             </div>
@@ -172,22 +189,22 @@ export default function VoiceCallModal({
             <p className="text-sm text-muted">{viewing.address}</p>
           </div>
 
-          {phase === "dialing" && (
+          {phase === "connecting" && (
             <div className="py-8 text-center">
               <div className="flex justify-center gap-1.5 mb-3">
                 <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
                 <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
                 <span className="w-2 h-2 bg-primary rounded-full animate-bounce" />
               </div>
-              <p className="text-sm text-muted">Generating voice & calling {phoneNumber}…</p>
+              <p className="text-sm text-muted">Generating Ava&apos;s voice with Qwen3-TTS…</p>
             </div>
           )}
 
-          {showTranscript && transcript.length > 0 && (
+          {(phase === "live" || showWhatsApp) && lines.length > 0 && (
             <div className="space-y-3">
-              {transcript
-                .slice(0, phase === "live" ? revealed + 1 : transcript.length)
-                .map((line, i) => (
+              {visibleLines.map((line, i) => {
+                const isSpeaking = phase === "live" && i === current && line.speaker === "agent";
+                return (
                   <div
                     key={i}
                     className={`flex ${line.speaker === "agent" ? "justify-start" : "justify-end"}`}
@@ -199,13 +216,22 @@ export default function VoiceCallModal({
                           : "bg-surface text-muted rounded-br-none"
                       }`}
                     >
-                      <span className="block text-[10px] uppercase tracking-wide opacity-60 mb-0.5">
+                      <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide opacity-60 mb-0.5">
                         {line.speaker === "agent" ? "Ava (AI)" : "Landlord"}
+                        {isSpeaking && (
+                          <span className="inline-flex gap-0.5 items-end h-2.5">
+                            <span className="w-0.5 h-1.5 bg-primary rounded animate-pulse" />
+                            <span className="w-0.5 h-2.5 bg-primary rounded animate-pulse [animation-delay:-0.2s]" />
+                            <span className="w-0.5 h-2 bg-primary rounded animate-pulse [animation-delay:-0.4s]" />
+                          </span>
+                        )}
                       </span>
                       {line.text}
                     </div>
                   </div>
-                ))}
+                );
+              })}
+              <div ref={transcriptEnd} />
             </div>
           )}
 
@@ -228,13 +254,8 @@ export default function VoiceCallModal({
                   <p className="text-xs text-muted text-center">sending…</p>
                 )}
               </div>
-              {waStatus === "error" && (
-                <p className="text-xs text-warning mt-2">
-                  WhatsApp shown as demo — join the Twilio sandbox to receive it on your phone.
-                </p>
-              )}
               {waStatus === "sent" && (
-                <p className="text-xs text-success mt-2">Sent to your WhatsApp ({phoneNumber}).</p>
+                <p className="text-xs text-success mt-2">Also sent to your WhatsApp ({phoneNumber}).</p>
               )}
             </div>
           )}
@@ -245,9 +266,6 @@ export default function VoiceCallModal({
               <p className="text-xs text-muted mt-0.5">
                 {viewing.propertyTitle} · {new Date(viewing.date).toLocaleDateString()} at {viewing.time}
               </p>
-              {callStatus === "placed" && (
-                <p className="text-xs text-muted mt-1">A real call was placed to {phoneNumber}.</p>
-              )}
             </div>
           )}
 
@@ -255,7 +273,7 @@ export default function VoiceCallModal({
             <div className="py-6 text-center">
               <p className="text-sm text-error mb-3">{error}</p>
               <button
-                onClick={startCall}
+                onClick={loadCall}
                 className="px-5 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover"
               >
                 Retry
