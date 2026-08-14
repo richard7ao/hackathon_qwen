@@ -21,6 +21,11 @@ out/
 .env.local
 .env.*.local
 
+# Personal notes / scratch (not part of the project)
+questions to ask.md
+*.notes.md
+scratch/
+
 # IDE
 .vscode/
 .idea/
