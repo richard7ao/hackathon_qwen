@@ -20,7 +20,10 @@
 - Vercel free tier has function execution limits; keep API routes simple and avoid heavy processing.
 - Node 26 is installed; Next.js 14 is pinned for stability.
 - Vercel deploy succeeded; project is aliased to `https://hackathonqwen.vercel.app` and connected to GitHub.
-- Hero visual is a custom SVG in `public/hero-visual.svg`.
+- Landing images generated with Alibaba `qwen-image-3.0` (script `scripts/gen-images.mjs`, output `public/generated/`).
+- Voice calling is LIVE: Twilio (trial) dials, Qwen3-TTS makes the voice. Trial accounts require the `Url` param (inline `Twiml` is blocked), so we host `/api/voice/twiml` which plays the OSS WAV. Verified real call to +44 7402184536 (completed, 6s).
+- Twilio from number: +447460041934. Env: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, DEMO_CALL_TO, APP_BASE_URL — all in Vercel + .env.local.
+- Alibaba can only call registered businesses, so Twilio is the dialer.
 
 ## Open Questions
 
