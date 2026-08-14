@@ -53,6 +53,8 @@ export default function VoiceCallModal({
   const [waNote, setWaNote] = useState<string | null>(null);
   const [bookedDate, setBookedDate] = useState(viewing.date);
   const [bookedTime, setBookedTime] = useState(viewing.time);
+  const [toolBooking, setToolBooking] = useState<{ weekday: string; time: string } | null>(null);
+  const [pendingBooking, setPendingBooking] = useState<{ date: string | null; time: string } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -90,6 +92,11 @@ export default function VoiceCallModal({
         setThinking(false);
         if (phase === "calling") setPhase("live");
         speak(data.audioUrl);
+        // Tool call: Ava booked the viewing → show it and finalize.
+        if (data.booking) {
+          setToolBooking({ weekday: data.booking.weekday, time: data.booking.time });
+          setPendingBooking({ date: data.booking.date, time: data.booking.time });
+        }
       } catch {
         setThinking(false);
       }
@@ -159,27 +166,29 @@ export default function VoiceCallModal({
     }
   };
 
-  const finishAndBook = useCallback(async () => {
+  const finishAndBook = useCallback(async (explicitDate?: string | null, explicitTime?: string | null) => {
     setPhase("whatsapp");
 
-    // 1) Extract the day/time actually agreed on the call.
-    let finalDate = viewing.date;
-    let finalTime = viewing.time;
-    try {
-      const exRes = await fetchWithTimeout(
-        "/api/extract-viewing",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ history: turns }),
-        },
-        15000,
-      );
-      const ex = await exRes.json();
-      if (ex.date) finalDate = ex.date;
-      if (ex.time) finalTime = ex.time;
-    } catch {
-      /* keep defaults */
+    // 1) Use the tool-provided slot if we have it; else extract from the transcript.
+    let finalDate = explicitDate || viewing.date;
+    let finalTime = explicitTime || viewing.time;
+    if (!explicitDate) {
+      try {
+        const exRes = await fetchWithTimeout(
+          "/api/extract-viewing",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ history: turns }),
+          },
+          15000,
+        );
+        const ex = await exRes.json();
+        if (ex.date) finalDate = ex.date;
+        if (ex.time) finalTime = ex.time;
+      } catch {
+        /* keep defaults */
+      }
     }
     setBookedDate(finalDate);
     setBookedTime(finalTime);
@@ -207,6 +216,17 @@ export default function VoiceCallModal({
     }
     setTimeout(() => setPhase("done"), 2600);
   }, [phoneNumber, viewing, turns, onBooked]);
+
+  // When Ava's tool call books a slot, finalize once she's finished speaking.
+  useEffect(() => {
+    if (!pendingBooking || phase !== "live" || speaking) return;
+    const t = setTimeout(() => {
+      const b = pendingBooking;
+      setPendingBooking(null);
+      finishAndBook(b.date, b.time);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [pendingBooking, phase, speaking, finishAndBook]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm p-4">
@@ -267,6 +287,16 @@ export default function VoiceCallModal({
                 <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]" />
                 <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]" />
                 <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+              </div>
+            </div>
+          )}
+
+          {/* Visible tool call when Ava books the slot */}
+          {toolBooking && (
+            <div className="flex justify-center">
+              <div className="inline-flex items-center gap-2 rounded-full bg-ink text-white text-xs px-3 py-1.5 font-mono">
+                <span>🔧</span>
+                book_viewing({toolBooking.weekday}, {toolBooking.time})
               </div>
             </div>
           )}
@@ -348,7 +378,7 @@ export default function VoiceCallModal({
               </button>
             </form>
             <button
-              onClick={finishAndBook}
+              onClick={() => finishAndBook()}
               className="mt-2 w-full py-2 rounded-xl bg-success/10 text-success text-sm font-medium hover:bg-success/20 transition-colors"
             >
               End call &amp; book the viewing
