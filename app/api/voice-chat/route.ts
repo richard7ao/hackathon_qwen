@@ -88,7 +88,12 @@ export async function POST(req: NextRequest) {
     let reply = msg?.content?.trim() || "";
     let booking: { weekday: string; time: string; date: string | null } | null = null;
 
-    if (toolCall && toolCall.type === "function" && toolCall.function?.name === "book_viewing") {
+    // Guard against premature booking: only honour book_viewing if an actual
+    // time was discussed in the conversation (Qwen-4B can call it too eagerly).
+    const convoText = (history || []).map((t) => t.content).join(" ").toLowerCase();
+    const hasTime = /(\d{1,2}\s*(am|pm)|\d{1,2}:\d{2}|noon|o'?clock|midday)/.test(convoText);
+
+    if (toolCall && toolCall.type === "function" && toolCall.function?.name === "book_viewing" && hasTime) {
       let args: { weekday?: string; time?: string } = {};
       try {
         args = JSON.parse(toolCall.function.arguments || "{}");
@@ -100,6 +105,9 @@ export async function POST(req: NextRequest) {
       booking = { weekday, time, date: nextDateForWeekday(weekday) };
       // Craft the spoken closing line for the tool result.
       reply = `Brilliant — that's the viewing booked for ${weekday} at ${time}. I'll confirm with ${renter} and send everything over now. Thanks so much for your time!`;
+    } else if (toolCall && !reply) {
+      // Model tried to book without a real time — steer back to proposing one.
+      reply = "Great! When would suit you for a viewing? I could do this Saturday at 2pm, or whatever works for you.";
     }
 
     if (!reply) reply = "Sorry, could you say that again?";
