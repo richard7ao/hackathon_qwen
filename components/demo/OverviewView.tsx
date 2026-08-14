@@ -42,7 +42,7 @@ export default function OverviewView({
         <Stat label="Booked" value={viewings.length} accent />
         <Stat
           label="Budget"
-          value={preferences.budget ? `$${preferences.budget.toLocaleString()}` : "—"}
+          value={preferences.budget ? `£${preferences.budget.toLocaleString()}` : "—"}
         />
       </div>
 
@@ -54,7 +54,7 @@ export default function OverviewView({
               <Row label="Location" value={preferences.location} />
             )}
             {preferences.budget && (
-              <Row label="Budget" value={`$${preferences.budget.toLocaleString()} / month`} />
+              <Row label="Budget" value={`£${preferences.budget.toLocaleString()} / month`} />
             )}
             {preferences.bedrooms !== undefined && (
               <Row label="Bedrooms" value={preferences.bedrooms === 0 ? "Studio" : String(preferences.bedrooms)} />

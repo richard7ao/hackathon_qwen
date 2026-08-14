@@ -49,9 +49,17 @@ export default function ViewedPropertiesView({
 
       {current ? (
         <div className="bg-bg rounded-2xl border border-surface overflow-hidden shadow-sm">
-          <div className="h-56 relative" style={{ backgroundColor: current.imageColor }} aria-hidden="true">
+          <div
+            className="h-56 relative bg-cover bg-center"
+            style={
+              current.thumbnailUrl
+                ? { backgroundImage: `url(${current.thumbnailUrl})` }
+                : { backgroundColor: current.imageColor }
+            }
+            aria-hidden="true"
+          >
             <span className="absolute top-4 left-4 text-sm font-semibold px-3 py-1.5 rounded-full bg-bg/85 text-ink">
-              ${current.price.toLocaleString()}/mo
+              £{current.price.toLocaleString()}/mo
             </span>
             <span className="absolute top-4 right-4 text-xs font-medium px-2.5 py-1 rounded-full bg-bg/85 text-muted">
               {pending.length} left
@@ -63,8 +71,18 @@ export default function ViewedPropertiesView({
             <div className="flex gap-4 mt-3 text-sm text-ink">
               <span>{current.bedrooms === 0 ? "Studio" : `${current.bedrooms} bed`}</span>
               <span>{current.bathrooms} bath</span>
-              <span>Available {new Date(current.availableFrom).toLocaleDateString()}</span>
+              {current.agentName && <span>{current.agentName}</span>}
             </div>
+            {current.listingUrl && (
+              <a
+                href={current.listingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-2 text-sm font-medium text-primary hover:text-primary-hover"
+              >
+                View on Rightmove →
+              </a>
+            )}
 
             <div className="flex gap-3 mt-6">
               <button

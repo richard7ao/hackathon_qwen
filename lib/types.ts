@@ -8,11 +8,20 @@ export interface Property {
   id: string;
   title: string;
   address: string;
+  postcode?: string;
   price: number;
   bedrooms: number;
   bathrooms: number;
   availableFrom: string;
   imageColor: string;
+  propertyType?: string;
+  agentName?: string;
+  /** Map/photo thumbnail URL. */
+  thumbnailUrl?: string;
+  /** Link to view the real listing (portal search). */
+  listingUrl?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export type OutreachChannel = "voice" | "email" | "whatsapp";

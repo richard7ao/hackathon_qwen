@@ -1,9 +1,42 @@
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
 const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER || "";
+// Twilio WhatsApp sandbox sender by default.
+const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886";
 
 export function twilioConfigured(): boolean {
   return Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER);
+}
+
+/**
+ * Send a WhatsApp message via the Twilio Messages API (sandbox on trial).
+ * The recipient must have joined the sandbox first. Returns the message SID.
+ */
+export async function sendWhatsApp(to: string, body: string): Promise<string> {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+    throw new Error("Twilio is not configured");
+  }
+  const toWa = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
+  const form = new URLSearchParams({ To: toWa, From: TWILIO_WHATSAPP_FROM, Body: body });
+  const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
+
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: form.toString(),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Twilio WhatsApp failed: ${res.status} ${text}`);
+  }
+  const data = await res.json();
+  return data.sid as string;
 }
 
 /**

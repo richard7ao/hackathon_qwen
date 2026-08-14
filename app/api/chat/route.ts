@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Message, Outreach, Property } from "@/lib/types";
-import { mockProperties } from "@/lib/mock-data";
+import { properties as mockProperties } from "@/lib/listings";
 import { chatCompletion, encode, cosineSimilarity, parseJson } from "@/lib/sie";
 
 interface ExtractedPreferences {
@@ -24,7 +24,7 @@ interface ChatResponse {
 
 const SYSTEM_PROMPT = `You are RentalFinder AI, a friendly rental assistant. Your job is to interview the user and collect exactly these fields:
 - location (city/neighborhood)
-- budget (monthly rent in USD, as a number)
+- budget (monthly rent in GBP £, as a number)
 - bedrooms (number)
 - moveInDate (free-text date like "Sep 1")
 - mustHaves (array of strings, e.g. ["pet-friendly", "parking"])
@@ -45,7 +45,7 @@ Rules:
 function getCombinedPreferenceText(prefs: ExtractedPreferences) {
   const parts = [
     prefs.location ? `Location: ${prefs.location}` : "",
-    prefs.budget ? `Budget: $${prefs.budget}` : "",
+    prefs.budget ? `Budget: £${prefs.budget}` : "",
     prefs.bedrooms ? `Bedrooms: ${prefs.bedrooms}` : "",
     prefs.moveInDate ? `Move-in: ${prefs.moveInDate}` : "",
     prefs.mustHaves?.length ? `Must-haves: ${prefs.mustHaves.join(", ")}` : "",
@@ -61,7 +61,7 @@ async function findMatches(prefs: ExtractedPreferences): Promise<Property[]> {
   try {
     const userText = getCombinedPreferenceText(prefs);
     const propertyTexts = mockProperties.map(
-      (p) => `${p.title}. ${p.address}. $${p.price} per month. ${p.bedrooms} bed, ${p.bathrooms} bath. Available ${p.availableFrom}.`,
+      (p) => `${p.title}. ${p.address}. £${p.price} per month. ${p.bedrooms} bed, ${p.bathrooms} bath. ${p.propertyType || ""}. Available ${p.availableFrom}.`,
     );
 
     const allEmbeddings = await encode([userText, ...propertyTexts]);
@@ -164,8 +164,8 @@ export async function POST(req: NextRequest) {
       // Provide quick-reply chips for common values based on the next question.
       const q = (parsed.nextQuestion || "").toLowerCase();
       if (q.includes("bedroom")) suggestions = ["1", "2", "3+"];
-      if (q.includes("budget")) suggestions = ["$2,500", "$3,000", "$3,500", "$4,000"];
-      if (q.includes("location")) suggestions = ["San Francisco", "New York", "Austin"];
+      if (q.includes("budget")) suggestions = ["£1,500", "£2,000", "£2,500", "£3,000"];
+      if (q.includes("location")) suggestions = ["Hackney", "Islington", "Camden", "Southwark"];
       if (q.includes("date")) suggestions = ["ASAP", "Sep 1", "Oct 1"];
     }
 

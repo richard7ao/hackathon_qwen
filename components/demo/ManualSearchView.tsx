@@ -67,7 +67,7 @@ export default function ManualSearchView({ onAddMatch, matchedIds }: ManualSearc
               type="text"
               value={maxBudget}
               onChange={(e) => setMaxBudget(e.target.value)}
-              placeholder="$3,500"
+              placeholder="£2,000"
               className="w-full px-4 py-2.5 rounded-xl border border-muted bg-bg text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>

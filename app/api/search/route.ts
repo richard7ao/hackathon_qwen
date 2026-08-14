@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { mockProperties } from "@/lib/mock-data";
+import { properties as mockProperties } from "@/lib/listings";
 import { encode, cosineSimilarity } from "@/lib/sie";
 
 export async function POST(req: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       try {
         const propertyTexts = results.map(
           (p) =>
-            `${p.title}. ${p.address}. $${p.price} per month. ${p.bedrooms} bed, ${p.bathrooms} bath. Available ${p.availableFrom}.`,
+            `${p.title}. ${p.address}. £${p.price} per month. ${p.bedrooms} bed, ${p.bathrooms} bath. ${p.propertyType || ""}. Available ${p.availableFrom}.`,
         );
         const embeddings = await encode([query, ...propertyTexts]);
         const queryVector = embeddings[0];
