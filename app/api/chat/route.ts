@@ -53,7 +53,8 @@ function getCombinedPreferenceText(prefs: ExtractedPreferences) {
 }
 
 async function findMatches(prefs: ExtractedPreferences): Promise<Property[]> {
-  if (!prefs.location || !prefs.budget || !prefs.bedrooms) {
+  // Note: bedrooms can be 0 (studio), so check for null/undefined explicitly.
+  if (!prefs.location || !prefs.budget || prefs.bedrooms === undefined || prefs.bedrooms === null) {
     return [];
   }
 
@@ -76,15 +77,15 @@ async function findMatches(prefs: ExtractedPreferences): Promise<Property[]> {
     const filtered = scored
       .filter(({ property }) => property.price <= prefs.budget! * 1.15 && property.bedrooms >= prefs.bedrooms!)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
+      .slice(0, 6)
       .map(({ property }) => property);
 
     return filtered;
   } catch (error) {
     // Fall back to rule-based matching if SIE embeddings fail.
     return mockProperties
-      .filter((p) => p.price <= (prefs.budget || 99999) * 1.15 && p.bedrooms >= (prefs.bedrooms || 1))
-      .slice(0, 3);
+      .filter((p) => p.price <= (prefs.budget || 99999) * 1.15 && p.bedrooms >= (prefs.bedrooms ?? 1))
+      .slice(0, 6);
   }
 }
 
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest) {
     const preferences: Record<string, string | number | string[]> = {};
     if (parsed.location) preferences.location = parsed.location;
     if (parsed.budget) preferences.budget = parsed.budget;
-    if (parsed.bedrooms) preferences.bedrooms = parsed.bedrooms;
+    if (parsed.bedrooms !== undefined && parsed.bedrooms !== null) preferences.bedrooms = parsed.bedrooms;
     if (parsed.moveInDate) preferences.moveInDate = parsed.moveInDate;
     if (parsed.mustHaves && parsed.mustHaves.length > 0) preferences.mustHaves = parsed.mustHaves;
 
@@ -148,9 +149,13 @@ export async function POST(req: NextRequest) {
     let complete = false;
     let reply = parsed.reply || "Tell me a bit more about what you're after.";
 
-    const hasCore = Boolean(parsed.location && parsed.budget && parsed.bedrooms);
+    const hasCore = Boolean(
+      parsed.location && parsed.budget && parsed.bedrooms !== undefined && parsed.bedrooms !== null,
+    );
 
-    if (parsed.isComplete && hasCore) {
+    // Search as soon as we have location + budget + bedrooms, even if the
+    // model didn't explicitly flag isComplete.
+    if (hasCore) {
       properties = await findMatches(parsed);
 
       if (properties.length > 0) {
