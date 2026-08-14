@@ -30,6 +30,18 @@ function nextSaturday2pm(): { date: string; time: string } {
   return { date: d.toISOString(), time: "2:00 PM" };
 }
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function fetchWithTimeout(url: string, opts: RequestInit, ms = 20000): Promise<Response> {
+  const c = new AbortController();
+  const id = setTimeout(() => c.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: c.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export default function DemoPage() {
   const [activeView, setActiveView] = useState<DemoView>("chat");
 
@@ -67,11 +79,15 @@ export default function DemoPage() {
     setSuggestions([]);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history: messages }),
-      });
+      const response = await fetchWithTimeout(
+        "/api/chat",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: text, history: messages }),
+        },
+        20000,
+      );
       if (!response.ok) throw new Error("Chat request failed");
       const data = await response.json();
 
@@ -86,7 +102,49 @@ export default function DemoPage() {
       if (data.suggestions) setSuggestions(data.suggestions);
       if (data.complete) setConversationComplete(true);
     } catch {
-      addMessage("bot", "Sorry, I hit a snag. Can you try that again?");
+      addMessage("bot", "That took too long — try again, or hit “Run instant demo”.");
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  // Fast, hardcoded demo: answers each question with its first suggestion.
+  const runInstantDemo = async () => {
+    if (conversationComplete || isTyping) return;
+    setSuggestions([]);
+    const script = [
+      { user: "Hackney, London", bot: "Hackney — vibrant and full of character! What's your monthly budget?" },
+      { user: "£1,500", bot: "Great, up to £1,500. How many bedrooms do you need?" },
+      { user: "Studio", bot: "A studio it is. When are you hoping to move in?" },
+      { user: "ASAP", bot: "Perfect — searching Hackney right now…" },
+    ];
+    for (const step of script) {
+      addMessage("user", step.user);
+      // eslint-disable-next-line no-await-in-loop
+      await delay(130);
+      addMessage("bot", step.bot);
+      // eslint-disable-next-line no-await-in-loop
+      await delay(160);
+    }
+    setPreferences({ location: "Hackney, London", budget: 1500, bedrooms: 0, moveInDate: "ASAP" });
+    setIsTyping(true);
+    try {
+      const res = await fetchWithTimeout(
+        "/api/search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: "bright studio flat in Hackney", maxBudget: 1500, minBedrooms: 0 }),
+        },
+        15000,
+      );
+      const data = await res.json();
+      const found: Property[] = (data.properties || []).slice(0, 6);
+      setMatches(found);
+      addMessage("bot", `Found ${found.length} places in Hackney within budget — take a look.`);
+      setConversationComplete(true);
+    } catch {
+      addMessage("bot", "Search timed out — please try again.");
     } finally {
       setIsTyping(false);
     }
@@ -143,6 +201,7 @@ export default function DemoPage() {
             matches={matches}
             complete={conversationComplete}
             onNavigate={setActiveView}
+            onRunDemo={runInstantDemo}
           />
         )}
         {activeView === "overview" && (

@@ -14,6 +14,7 @@ interface ChatViewProps {
   matches: Property[];
   complete: boolean;
   onNavigate: (view: DemoView) => void;
+  onRunDemo: () => void;
 }
 
 export default function ChatView({
@@ -25,6 +26,7 @@ export default function ChatView({
   matches,
   complete,
   onNavigate,
+  onRunDemo,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -118,6 +120,15 @@ export default function ChatView({
       </div>
 
       <div className="px-6 py-4 border-t border-surface">
+        {!disabled && (
+          <button
+            type="button"
+            onClick={onRunDemo}
+            className="mb-3 w-full py-2 rounded-xl bg-primary-subtle text-primary text-sm font-medium hover:bg-primary hover:text-white transition-colors"
+          >
+            ⚡ Run instant demo
+          </button>
+        )}
         {suggestions.length > 0 && !disabled && (
           <div className="flex flex-wrap gap-2 mb-3">
             {suggestions.map((suggestion) => (

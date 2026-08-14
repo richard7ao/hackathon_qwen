@@ -23,6 +23,16 @@ interface VoiceCallModalProps {
 
 type Phase = "calling" | "live" | "whatsapp" | "done";
 
+async function fetchWithTimeout(url: string, opts: RequestInit, ms = 20000): Promise<Response> {
+  const c = new AbortController();
+  const id = setTimeout(() => c.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: c.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export default function VoiceCallModal({
   viewing,
   renterName,
@@ -62,7 +72,7 @@ export default function VoiceCallModal({
       if (userText) setTurns(nextHistory);
       setThinking(true);
       try {
-        const res = await fetch("/api/voice-chat", {
+        const res = await fetchWithTimeout("/api/voice-chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -123,7 +133,7 @@ export default function VoiceCallModal({
         try {
           const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
           const wav = await blobToWavDataUri(blob);
-          const res = await fetch("/api/asr", {
+          const res = await fetchWithTimeout("/api/asr", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ audio: wav }),
@@ -148,7 +158,7 @@ export default function VoiceCallModal({
   const finishAndBook = useCallback(async () => {
     setPhase("whatsapp");
     try {
-      const res = await fetch("/api/whatsapp", {
+      const res = await fetchWithTimeout("/api/whatsapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
