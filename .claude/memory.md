@@ -24,6 +24,9 @@
 - Voice calling is LIVE: Twilio (trial) dials, Qwen3-TTS makes the voice. Trial accounts require the `Url` param (inline `Twiml` is blocked), so we host `/api/voice/twiml` which plays the OSS WAV. Verified real call to +44 7402184536 (completed, 6s).
 - Twilio from number: +447460041934. Env: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, DEMO_CALL_TO, APP_BASE_URL — all in Vercel + .env.local.
 - Alibaba can only call registered businesses, so Twilio is the dialer.
+- Real listings: homedata live-listings API (key in HOMEDATA_API_KEY). No photos/links in the API, so we fetch a cached snapshot (scripts/gen-listings.mjs → data/listings.json) of real London rentals across 6 boroughs, rank with SIE, and enrich with OSM map-tile thumbnails (geocoded via postcodes.io, free) + Rightmove postcode search links. homedata free tier = 100 req/mo, hence the cached snapshot.
+- WhatsApp is LIVE: Twilio WhatsApp from +447460041934 using approved content template TWILIO_WHATSAPP_CONTENT_SID=HXfe5ab5f00277942d4d4200328b4d403c (business-initiated, always delivers). Free-form tailored messages are best-effort (need an open 24h session). Template is static text; our nice wording shows in the UI thread.
+- Booking flow auto-fires: Yes → real call (Qwen3-TTS) → WhatsApp template + simulated thread.
 
 ## Open Questions
 
