@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Viewing } from "@/lib/types";
+import { blobToWavDataUri } from "@/lib/wav";
 
 interface Turn {
   role: "user" | "assistant";
@@ -22,16 +23,6 @@ interface VoiceCallModalProps {
 
 type Phase = "calling" | "live" | "whatsapp" | "done";
 
-// Minimal typing for the Web Speech API (not in TS lib DOM by default).
-type SpeechRecognitionLike = {
-  lang: string;
-  interimResults: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-
 export default function VoiceCallModal({
   viewing,
   renterName,
@@ -43,12 +34,14 @@ export default function VoiceCallModal({
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [waMessages, setWaMessages] = useState<WhatsAppMsg[]>([]);
   const [waStatus, setWaStatus] = useState<string | null>(null);
   const [waNote, setWaNote] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const started = useRef(false);
   const scrollEnd = useRef<HTMLDivElement>(null);
 
@@ -75,6 +68,7 @@ export default function VoiceCallModal({
           body: JSON.stringify({
             history: nextHistory,
             property: { title: viewing.propertyTitle, address: viewing.address },
+            renterName,
           }),
         });
         const data = await res.json();
@@ -86,7 +80,7 @@ export default function VoiceCallModal({
         setThinking(false);
       }
     },
-    [turns, viewing, phase, speak],
+    [turns, viewing, phase, speak, renterName],
   );
 
   // On open, the landlord answers the call.
@@ -108,33 +102,47 @@ export default function VoiceCallModal({
     sendTurn(text);
   };
 
-  // Speech-to-text (Web Speech API) for "you speaking on the call".
-  const toggleMic = () => {
-    const w = window as unknown as {
-      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-      SpeechRecognition?: new () => SpeechRecognitionLike;
-    };
-    const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!Ctor) {
-      alert("Speech input isn't supported in this browser — type instead.");
+  // Push-to-talk mic: record audio, transcribe with Qwen ASR, then send.
+  const toggleMic = async () => {
+    if (transcribing) return;
+    if (recording) {
+      mediaRecorderRef.current?.stop();
       return;
     }
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setRecording(false);
+        setTranscribing(true);
+        try {
+          const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+          const wav = await blobToWavDataUri(blob);
+          const res = await fetch("/api/asr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: wav }),
+          });
+          const data = await res.json();
+          const text = (data.text || "").trim();
+          if (text) sendTurn(text);
+        } catch {
+          /* ignore */
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+      mr.start();
+    } catch {
+      alert("Couldn't access the microphone. Check permissions, or type instead.");
     }
-    const rec = new Ctor();
-    rec.lang = "en-GB";
-    rec.interimResults = false;
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setInput("");
-      sendTurn(transcript);
-    };
-    rec.onend = () => setListening(false);
-    recognitionRef.current = rec;
-    setListening(true);
-    rec.start();
   };
 
   const finishAndBook = useCallback(async () => {
@@ -176,10 +184,10 @@ export default function VoiceCallModal({
               )}
             </div>
             <div>
-              <p className="font-semibold">Call · Landlord</p>
+              <p className="font-semibold">Ava · RentalFinder AI</p>
               <p className="text-xs text-white/80">
-                {phase === "calling" && "Connecting…"}
-                {phase === "live" && (speaking ? "Speaking…" : thinking ? "…" : "On the call")}
+                {phase === "calling" && "Calling you…"}
+                {phase === "live" && (speaking ? "Ava speaking…" : thinking ? "…" : "On the call with you")}
                 {phase === "whatsapp" && "Sending WhatsApp…"}
                 {phase === "done" && "Call ended · viewing booked"}
               </p>
@@ -190,9 +198,9 @@ export default function VoiceCallModal({
           </button>
         </div>
 
-        {/* Sub-header: what you're calling about */}
+        {/* Sub-header: you are the landlord */}
         <div className="px-6 py-3 border-b border-surface shrink-0">
-          <p className="text-xs text-muted">Calling about</p>
+          <p className="text-xs text-muted">You&apos;re the landlord of</p>
           <p className="text-sm font-medium text-ink">{viewing.propertyTitle}</p>
         </div>
 
@@ -208,7 +216,7 @@ export default function VoiceCallModal({
                 }`}
               >
                 <span className="block text-[10px] uppercase tracking-wide opacity-60 mb-0.5">
-                  {t.role === "user" ? `You (${renterName})` : "Landlord"}
+                  {t.role === "user" ? "You (Landlord)" : "Ava (RentalFinder)"}
                 </span>
                 {t.content}
               </div>
@@ -268,19 +276,23 @@ export default function VoiceCallModal({
               <button
                 type="button"
                 onClick={toggleMic}
-                className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
-                  listening ? "bg-error text-white border-error" : "border-muted text-ink hover:border-primary"
+                disabled={transcribing}
+                className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center border transition-colors disabled:opacity-50 ${
+                  recording ? "bg-error text-white border-error animate-pulse" : "border-muted text-ink hover:border-primary"
                 }`}
-                title="Speak"
+                title={recording ? "Stop & send" : "Hold a reply — tap to record, tap again to send"}
               >
-                🎤
+                {recording ? "⏹" : "🎤"}
               </button>
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={listening ? "Listening…" : "Say something to the landlord…"}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-muted bg-bg text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder={
+                  recording ? "Recording… tap ⏹ to send" : transcribing ? "Transcribing…" : "Reply as the landlord…"
+                }
+                disabled={recording || transcribing}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-muted bg-bg text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-60"
               />
               <button
                 type="submit"

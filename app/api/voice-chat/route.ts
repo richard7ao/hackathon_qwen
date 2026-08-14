@@ -18,18 +18,21 @@ export async function POST(req: NextRequest) {
     const {
       history,
       property,
-    }: { history: Turn[]; property?: { title?: string; address?: string } } = await req.json();
+      renterName,
+    }: { history: Turn[]; property?: { title?: string; address?: string }; renterName?: string } =
+      await req.json();
 
     const title = property?.title || "the property";
     const address = property?.address || "the listed address";
+    const renter = renterName || "my client";
 
-    const system = `You are the friendly letting agent for "${title}" at ${address}, taking a phone call from a prospective tenant.
+    const system = `You are Ava, a friendly AI booking assistant for RentalFinder. You are phoning a LANDLORD to arrange a viewing of their rental "${title}" at ${address}, on behalf of a tenant called ${renter}. The person you are speaking to IS the landlord.
 Rules:
 - Speak naturally and briefly, like a real phone call: 1-2 short sentences per reply.
-- Answer their questions about the flat (rooms, availability, bills, pets, transport) — make reasonable, positive details up if needed.
-- When they ask to view it, agree and offer a specific day and time (e.g. "this Saturday at 2pm").
-- If the call is just starting (no messages yet), greet them: say hello, name the property, and ask how you can help.
-- Never say you are an AI. Do not use emojis or markdown. Keep it human and warm.`;
+- You are the CALLER. If the call is just starting (no messages yet), open the call: introduce yourself as Ava from RentalFinder, say you're calling on behalf of ${renter} about "${title}", and ask if it's still available.
+- Your goal is to agree a viewing time. Propose a specific slot (e.g. "would this Saturday at 2pm suit you?") and confirm once the landlord agrees.
+- Be polite and efficient; thank them and confirm the details at the end.
+- Do not use emojis or markdown. Keep it human and warm.`;
 
     const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
       { role: "system", content: system },
