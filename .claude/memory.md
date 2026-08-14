@@ -19,9 +19,12 @@
 - Tera-style hero needs a strong visual asset — if no custom illustration, use a clean abstract SVG or generated image.
 - Vercel free tier has function execution limits; keep API routes simple and avoid heavy processing.
 - Node 26 is installed; Next.js 14 is pinned for stability.
+- Vercel deploy succeeded; project is aliased to `https://hackathonqwen.vercel.app` and connected to GitHub.
+- Hero visual is a custom SVG in `public/hero-visual.svg`.
 
 ## Open Questions
 
 - Do we have real API keys for Twilio/WhatsApp/SendGrid, or should outreach remain simulated?
-- Should the landing page use a generated hero illustration or a simpler CSS/SVG composition?
 - Does the demo need actual SIE Python integration, or is the mock routing enough for the hackathon video?
+- Should we record the 2-minute demo video now, or polish the chat/dashboard interactions first?
+- What social platform and handle should we use for the social media track post?
