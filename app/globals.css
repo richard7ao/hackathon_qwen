@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: oklch(1 0 0);
+  --surface: oklch(0.985 0.003 220);
+  --ink: oklch(0.15 0.02 220);
+  --muted: oklch(0.5 0.015 220);
+  --primary: oklch(0.52 0.17 145);
+  --primary-hover: oklch(0.44 0.18 145);
+  --primary-subtle: oklch(0.95 0.035 145);
+  --accent: oklch(0.7 0.1 85);
+  --success: oklch(0.6 0.15 145);
+  --warning: oklch(0.7 0.13 85);
+  --error: oklch(0.55 0.18 25);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+@layer utilities {
+  .ease-out-quart {
+    transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+}
