@@ -1,7 +1,6 @@
 "use client";
 
-import { Property, Viewing } from "@/lib/types";
-import PropertyMap from "./PropertyMap";
+import { Viewing } from "@/lib/types";
 
 interface ViewingDetailsModalProps {
   viewing: Viewing;
@@ -10,25 +9,6 @@ interface ViewingDetailsModalProps {
 }
 
 export default function ViewingDetailsModal({ viewing, onClose, onCall }: ViewingDetailsModalProps) {
-  const mapProps: Property[] =
-    typeof viewing.lat === "number" && typeof viewing.lon === "number"
-      ? [
-          {
-            id: viewing.propertyId,
-            title: viewing.propertyTitle,
-            address: viewing.address,
-            price: viewing.price ?? 0,
-            bedrooms: viewing.bedrooms ?? 1,
-            bathrooms: viewing.bathrooms ?? 1,
-            availableFrom: viewing.date,
-            imageColor: "oklch(0.88 0.06 145)",
-            lat: viewing.lat,
-            lon: viewing.lon,
-            listingUrl: viewing.listingUrl,
-          },
-        ]
-      : [];
-
   const dateLabel = new Date(viewing.date).toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -60,8 +40,15 @@ export default function ViewingDetailsModal({ viewing, onClose, onCall }: Viewin
             </span>
           </div>
 
-          {/* Map */}
-          {mapProps.length > 0 && <PropertyMap properties={mapProps} height={200} selectedId={viewing.propertyId} />}
+          {/* Property photo */}
+          {viewing.thumbnailUrl && (
+            <div
+              className="w-full h-44 rounded-xl bg-cover bg-center border border-surface"
+              style={{ backgroundImage: `url(${viewing.thumbnailUrl})` }}
+              aria-label="Property photo"
+              role="img"
+            />
+          )}
 
           {/* Details */}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

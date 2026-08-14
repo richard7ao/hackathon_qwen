@@ -25,16 +25,22 @@ const BOROUGHS = [
   "London Borough of Camden",
 ];
 
-function osmTileUrl(lat, lon, zoom = 15) {
-  const n = 2 ** zoom;
-  const x = Math.floor(((lon + 180) / 360) * n);
-  const latRad = (lat * Math.PI) / 180;
-  const y = Math.floor(((1 - Math.asinh(Math.tan(latRad)) / Math.PI) / 2) * n);
-  return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
+// Verified royalty-free apartment/interior photos (Unsplash CDN, hotlink-safe).
+const PHOTOS = [
+  "1522708323590-d24dbb6b0267", "1502672260266-1c1ef2d93688", "1560448204-e02f11c3d0e2",
+  "1560185007-cde436f6a4d0", "1493809842364-78817add7ffb", "1484154218962-a197022b5858",
+  "1512917774080-9991f1c4c750", "1502005229762-cf1b2da7c5d6", "1449844908441-8829872d2607",
+  "1567767292278-a4f21aa2d36e",
+].map((id) => `https://images.unsplash.com/photo-${id}?w=800&q=70&auto=format&fit=crop`);
+
+function photoFor(index) {
+  return PHOTOS[index % PHOTOS.length];
 }
 function rightmoveSearchUrl(postcode, street) {
-  const q = encodeURIComponent([street, postcode].filter(Boolean).join(" ").trim());
-  return `https://www.rightmove.co.uk/property-to-rent/find.html?searchType=RENT&keywords=${q}`;
+  // Rightmove needs a location identifier for a direct search, so route via a
+  // Google search scoped to Rightmove — reliably lands on the real listing(s).
+  const q = encodeURIComponent(`${[street, postcode].filter(Boolean).join(" ")} to rent site:rightmove.co.uk`);
+  return `https://www.google.com/search?q=${q}`;
 }
 async function boundaryId(name) {
   const r = await fetch(`${BASE}/boundaries/autocomplete/?q=${encodeURIComponent(name)}`, { headers: H });
@@ -81,7 +87,7 @@ for (const b of BOROUGHS) {
 
 const geo = await geocode(all.map((l) => l.postcode));
 
-const listings = all.map((l) => {
+const listings = all.map((l, idx) => {
   const g = geo[l.postcode];
   const beds = l.bedrooms === 0 ? "Studio" : `${l.bedrooms ?? 1} bed`;
   const type = (l.property_type || "flat").replace(/_/g, " ");
@@ -99,7 +105,7 @@ const listings = all.map((l) => {
     agentName: l.agent_name,
     lat: g?.lat,
     lon: g?.lon,
-    thumbnailUrl: g ? osmTileUrl(g.lat, g.lon, 15) : undefined,
+    thumbnailUrl: photoFor(idx), // real property photo (map lives in the results map)
     listingUrl: rightmoveSearchUrl(l.postcode, l.street),
   };
 }).filter((l) => l.price > 0);

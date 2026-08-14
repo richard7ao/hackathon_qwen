@@ -42,8 +42,8 @@ export function osmTileUrl(lat: number, lon: number, zoom = 15): string {
   return `https://tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 }
 
-/** Rightmove search deep-link for a postcode (opens the real listings). */
+/** Link that reliably reaches the real Rightmove listing(s) for an address. */
 export function rightmoveSearchUrl(postcode: string, street?: string): string {
-  const q = encodeURIComponent([street, postcode].filter(Boolean).join(" ").trim());
-  return `https://www.rightmove.co.uk/property-to-rent/find.html?searchType=RENT&keywords=${q}`;
+  const q = encodeURIComponent(`${[street, postcode].filter(Boolean).join(" ")} to rent site:rightmove.co.uk`);
+  return `https://www.google.com/search?q=${q}`;
 }
