@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Message } from "@/lib/types";
+import { Message, Property } from "@/lib/types";
+import { DemoView } from "./Sidebar";
+import PropertyMap from "./PropertyMap";
 
 interface ChatViewProps {
   messages: Message[];
@@ -9,6 +11,9 @@ interface ChatViewProps {
   isTyping: boolean;
   disabled: boolean;
   suggestions: string[];
+  matches: Property[];
+  complete: boolean;
+  onNavigate: (view: DemoView) => void;
 }
 
 export default function ChatView({
@@ -17,13 +22,16 @@ export default function ChatView({
   isTyping,
   disabled,
   suggestions,
+  matches,
+  complete,
+  onNavigate,
 }: ChatViewProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages, isTyping, matches.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +39,8 @@ export default function ChatView({
     onSendMessage(input.trim());
     setInput("");
   };
+
+  const showResults = complete && matches.length > 0;
 
   return (
     <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
@@ -66,6 +76,44 @@ export default function ChatView({
             </div>
           </div>
         )}
+
+        {/* Matches shown inline in the chat: map + cards */}
+        {showResults && (
+          <div className="space-y-3 pt-2">
+            <PropertyMap properties={matches} height={220} />
+            <div className="grid sm:grid-cols-2 gap-3">
+              {matches.map((p) => (
+                <div key={p.id} className="bg-bg rounded-xl border border-surface overflow-hidden">
+                  <div
+                    className="h-24 bg-cover bg-center relative"
+                    style={
+                      p.thumbnailUrl
+                        ? { backgroundImage: `url(${p.thumbnailUrl})` }
+                        : { backgroundColor: p.imageColor }
+                    }
+                  >
+                    <span className="absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-bg/85 text-ink">
+                      £{p.price.toLocaleString()}/mo
+                    </span>
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-medium text-ink truncate">{p.title}</p>
+                    <p className="text-xs text-muted truncate">{p.address}</p>
+                    <p className="text-xs text-ink mt-1">
+                      {p.bedrooms === 0 ? "Studio" : `${p.bedrooms} bed`} · {p.bathrooms} bath
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => onNavigate("viewed")}
+              className="w-full py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
+            >
+              Review these & book a viewing →
+            </button>
+          </div>
+        )}
         <div ref={scrollRef} />
       </div>
 
@@ -90,7 +138,7 @@ export default function ChatView({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={disabled ? "Chat complete — check the sidebar" : "Type your answer…"}
+            placeholder={disabled ? "Matches ready — review them above" : "Type your answer…"}
             disabled={disabled}
             className="flex-1 px-4 py-2.5 rounded-xl border border-muted bg-bg text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
           />

@@ -103,6 +103,15 @@ export default function DemoPage() {
         date,
         time,
         channel: "voice",
+        price: property.price,
+        bedrooms: property.bedrooms,
+        bathrooms: property.bathrooms,
+        propertyType: property.propertyType,
+        agentName: property.agentName,
+        thumbnailUrl: property.thumbnailUrl,
+        listingUrl: property.listingUrl,
+        lat: property.lat,
+        lon: property.lon,
       };
       setViewings((prev) => (prev.some((v) => v.propertyId === property.id) ? prev : [...prev, viewing]));
       // Immediately open the voice agent to "call" the landlord.
@@ -126,6 +135,9 @@ export default function DemoPage() {
             isTyping={isTyping}
             disabled={conversationComplete}
             suggestions={suggestions}
+            matches={matches}
+            complete={conversationComplete}
+            onNavigate={setActiveView}
           />
         )}
         {activeView === "overview" && (

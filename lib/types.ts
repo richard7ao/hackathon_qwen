@@ -54,4 +54,13 @@ export interface Viewing {
   date: string; // ISO date
   time: string; // e.g. "2:00 PM"
   channel: OutreachChannel;
+  price?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  propertyType?: string;
+  agentName?: string;
+  thumbnailUrl?: string;
+  listingUrl?: string;
+  lat?: number;
+  lon?: number;
 }

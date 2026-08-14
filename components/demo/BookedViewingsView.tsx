@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Viewing } from "@/lib/types";
 import { DemoView } from "./Sidebar";
+import ViewingDetailsModal from "./ViewingDetailsModal";
 
 interface BookedViewingsViewProps {
   viewings: Viewing[];
@@ -25,6 +27,8 @@ export default function BookedViewingsView({
   onNavigate,
   onCall,
 }: BookedViewingsViewProps) {
+  const [selected, setSelected] = useState<Viewing | null>(null);
+
   // Anchor calendar on the month of the first viewing, else current month.
   const anchor = viewings.length > 0 ? new Date(viewings[0].date) : new Date();
   const year = anchor.getFullYear();
@@ -77,19 +81,29 @@ export default function BookedViewingsView({
           {cells.map((day, i) => {
             const dayViewings = day ? viewingsByDay.get(day) : null;
             const hasViewing = dayViewings && dayViewings.length > 0;
-            return (
-              <div
-                key={i}
-                className={`aspect-square rounded-lg text-sm flex flex-col items-center justify-center relative ${
-                  day ? "border border-surface" : ""
-                } ${hasViewing ? "bg-primary text-white font-semibold" : "text-ink"}`}
-              >
-                {day && <span>{day}</span>}
-                {hasViewing && (
+            if (hasViewing) {
+              return (
+                <button
+                  key={i}
+                  onClick={() => setSelected(dayViewings![0])}
+                  className="aspect-square rounded-lg text-sm flex flex-col items-center justify-center relative border border-primary bg-primary text-white font-semibold hover:bg-primary-hover transition-colors cursor-pointer"
+                  title={dayViewings![0].propertyTitle}
+                >
+                  <span>{day}</span>
                   <span className="text-[9px] leading-tight mt-0.5 px-1 text-center">
                     {dayViewings![0].time}
                   </span>
-                )}
+                </button>
+              );
+            }
+            return (
+              <div
+                key={i}
+                className={`aspect-square rounded-lg text-sm flex items-center justify-center ${
+                  day ? "border border-surface text-ink" : ""
+                }`}
+              >
+                {day && <span>{day}</span>}
               </div>
             );
           })}
@@ -98,10 +112,12 @@ export default function BookedViewingsView({
 
       {/* Viewing list */}
       <div className="space-y-3">
+        <p className="text-xs text-muted">Tap a viewing for full details.</p>
         {viewings.map((v) => (
-          <div
+          <button
             key={v.id}
-            className="bg-bg rounded-xl border border-surface p-4 flex items-center justify-between gap-4"
+            onClick={() => setSelected(v)}
+            className="w-full text-left bg-bg rounded-xl border border-surface p-4 flex items-center justify-between gap-4 hover:border-primary transition-colors"
           >
             <div className="min-w-0">
               <p className="font-medium text-ink truncate">{v.propertyTitle}</p>
@@ -119,16 +135,22 @@ export default function BookedViewingsView({
               <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
                 <span className="w-1.5 h-1.5 rounded-full bg-success" /> Confirmed
               </span>
-              <button
-                onClick={() => onCall(v)}
-                className="px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary-hover transition-colors"
-              >
-                📞 Replay AI call
-              </button>
+              <span className="text-xs font-medium text-primary">View details →</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
+
+      {selected && (
+        <ViewingDetailsModal
+          viewing={selected}
+          onClose={() => setSelected(null)}
+          onCall={(v) => {
+            setSelected(null);
+            onCall(v);
+          }}
+        />
+      )}
     </div>
   );
 }
