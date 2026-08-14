@@ -39,7 +39,9 @@ export async function POST(req: NextRequest) {
       if (!twilioConfigured() || !to) {
         callStatus = "unconfigured";
       } else {
-        const twimlUrl = `${publicBaseUrl()}/api/voice/twiml?audio=${encodeURIComponent(audioUrl)}`;
+        // Play a header-repaired, https audio/wav proxy of the Qwen TTS so Twilio can play it.
+        const proxied = `${publicBaseUrl()}/api/voice/audio?src=${encodeURIComponent(audioUrl)}`;
+        const twimlUrl = `${publicBaseUrl()}/api/voice/twiml?audio=${encodeURIComponent(proxied)}`;
         callSid = await placeCall({ to, twimlUrl });
         callStatus = "placed";
       }

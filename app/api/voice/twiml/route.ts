@@ -14,7 +14,8 @@ function xmlResponse(xml: string) {
  * the landlord script with Qwen3-TTS on demand.
  */
 async function handle(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
+  const url = new URL(req.url);
+  const { searchParams } = url;
   const audio = searchParams.get("audio");
 
   let audioUrl = audio || "";
@@ -28,7 +29,8 @@ async function handle(req: NextRequest) {
     });
     try {
       const result = await synthesizeSpeech(spoken, "Cherry", "English");
-      audioUrl = result.audioUrl;
+      // Route through the header-repair proxy so Twilio can play it.
+      audioUrl = `${url.origin}/api/voice/audio?src=${encodeURIComponent(result.audioUrl)}`;
     } catch {
       audioUrl = "";
     }
